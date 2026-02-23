@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, Header
 from dotenv import load_dotenv
 from supabase import create_client
 from pydantic import BaseModel
@@ -9,16 +9,22 @@ from jsonschema import validate, ValidationError
 load_dotenv()
 url = os.getenv("SUPABASE_URL")
 key = os.getenv("SUPABASE_KEY")
-supabase = create_client(url, key) 
+API_KEY = os.getenv("API_KEY")
+supabase = create_client(url, key)
 
 app = FastAPI()
+
+def verify_api_key(x_api_key: str = Header(...)):
+    if x_api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+    return x_api_key
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
 
 @app.get("/schema/{datasource_id}")
-def get_schema(datasource_id: int):
+def get_schema(datasource_id: int, api_key: str = Depends(verify_api_key)):
     result = supabase.table("datasources").select("data_schema").eq("id", datasource_id).execute()
     if result.data:
         return {"data_schema": result.data[0]["data_schema"]}
@@ -31,7 +37,7 @@ class ValidationRequest(BaseModel):
     schema: Optional[dict] = None
 
 @app.post("/validate")
-def validate_data(request: ValidationRequest):
+def validate_data(request: ValidationRequest, api_key: str = Depends(verify_api_key)):
     # Validate: must provide exactly one of datasource_id or schema
     if request.datasource_id and request.schema:
         raise HTTPException(status_code=400, detail="Provide only one of 'datasource_id' or 'schema', not both")
