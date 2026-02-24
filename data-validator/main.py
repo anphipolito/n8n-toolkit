@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException, Depends, Header
+from fastapi import FastAPI, HTTPException, Depends, Security
+from fastapi.security import APIKeyHeader
 from dotenv import load_dotenv
 from supabase import create_client
 from pydantic import BaseModel
@@ -14,10 +15,12 @@ supabase = create_client(url, key)
 
 app = FastAPI()
 
-def verify_api_key(x_api_key: str = Header(...)):
-    if x_api_key != API_KEY:
+api_key_header = APIKeyHeader(name="X-API-Key")
+
+def verify_api_key(api_key: str = Security(api_key_header)):
+    if api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API key")
-    return x_api_key
+    return api_key
 
 @app.get("/health")
 def health():
