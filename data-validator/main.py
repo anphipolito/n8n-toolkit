@@ -21,7 +21,10 @@ def verify_api_key(x_api_key: str = Header(...)):
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "api_key_loaded": API_KEY is not None and len(API_KEY) > 0
+    }
 
 @app.get("/schema/{datasource_id}")
 def get_schema(datasource_id: int, api_key: str = Depends(verify_api_key)):
