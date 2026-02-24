@@ -57,6 +57,6 @@ def validate_data(request: ValidationRequest, api_key: str = Depends(verify_api_
     # Validate the data
     try:
         validate(instance=request.data, schema=data_schema)
-        return {"valid": True, "message": "Data is valid according to the schema."}
+        return request.data #return the original data if valid
     except ValidationError as e:
         return {"valid": False, "message": f"Data validation error: {e.message}"}   
