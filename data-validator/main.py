@@ -3,7 +3,7 @@ from fastapi.security import APIKeyHeader
 from dotenv import load_dotenv
 from supabase import create_client
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 import os
 from jsonschema import validate, ValidationError
 
@@ -38,7 +38,7 @@ def get_schema(datasource_id: int, api_key: str = Depends(verify_api_key)):
         raise HTTPException(status_code=404, detail="Datasource not found")
     
 class ValidationRequest(BaseModel):
-    data: dict
+    data: List[dict]
     datasource_id: Optional[int] = None
     schema: Optional[dict] = None
 
@@ -60,9 +60,26 @@ def validate_data(request: ValidationRequest, api_key: str = Depends(verify_api_
     else:
         data_schema = request.schema
 
-    # Validate the data
-    try:
-        validate(instance=request.data, schema=data_schema)
-        return request.data #return the original data if valid
-    except ValidationError as e:
-        return {"valid": False, "message": f"Data validation error: {e.message}"}   
+    # Validate each item in the array
+    valid_items = []
+    errors = []
+
+    for index, item in enumerate(request.data):
+        try:
+            validate(instance=item, schema=data_schema)
+            valid_items.append(item)
+        except ValidationError as e:
+            errors.append({"index": index, "item": item, "error": e.message})
+
+    # If all valid, return just the data
+    if len(errors) == 0:
+        return valid_items
+
+    # If there are errors, return detailed response
+    return {
+        "valid_items": valid_items,
+        "errors": errors,
+        "total": len(request.data),
+        "valid_count": len(valid_items),
+        "error_count": len(errors)
+    }   
